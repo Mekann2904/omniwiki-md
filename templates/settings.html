@@ -1,0 +1,78 @@
+<div id="settings-popup" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-color); padding: 20px; border: 1px solid var(--border-color); z-index: 1000; width: 400px;">
+    <h2 style="margin-top: 0; color: var(--text-color);">API設定</h2>
+    <form id="settings-form" action="/settings" method="POST">
+        <div style="margin-bottom: 15px;">
+            <label for="grok-api-key" style="display: block; margin-bottom: 5px; color: var(--text-color);">Grok APIキー</label>
+            <input type="password" id="grok-api-key" name="api_key" placeholder="APIキーを入力" required style="width: 100%; padding: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-color);">
+            {% if has_api_key %}
+            <small style="color: var(--success-color);">APIキーが設定されています</small>
+            {% else %}
+            <small style="color: var(--error-color);">APIキーが設定されていません</small>
+            {% endif %}
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label for="grok-model" style="display: block; margin-bottom: 5px; color: var(--text-color);">Grokモデル</label>
+            <select id="grok-model" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-color);">
+                <option value="grok-2-latest">Grok-2 Latest</option>
+            </select>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button type="button" onclick="closeSettingsPopup()" style="padding: 8px 16px; border: 1px solid var(--border-color); background: none; color: var(--text-color); cursor: pointer;">キャンセル</button>
+            <button type="submit" style="padding: 8px 16px; border: none; background: var(--primary-color); color: white; cursor: pointer;">保存</button>
+        </div>
+    </form>
+</div>
+
+    <script>
+        document.getElementById('settings-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const apiKey = document.getElementById('grok-api-key').value;
+            const model = document.getElementById('grok-model').value;
+            
+            // localStorageに安全に保存
+            localStorage.setItem('grok_api_key', apiKey);
+            localStorage.setItem('grok_model', model);
+            
+            fetch('/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `api_key=${encodeURIComponent(apiKey)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    closeSettingsPopup();
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(error => {
+                alert('設定の保存中にエラーが発生しました');
+                console.error(error);
+            });
+        });
+
+        function showSettingsPopup() {
+            document.getElementById('settings-popup').style.display = 'block';
+        }
+
+        function closeSettingsPopup() {
+            document.getElementById('settings-popup').style.display = 'none';
+        }
+
+        // 保存された設定を読み込む
+        window.addEventListener('load', function() {
+            const savedApiKey = localStorage.getItem('grok_api_key');
+            const savedModel = localStorage.getItem('grok_model');
+            
+            if (savedApiKey) {
+                document.getElementById('grok-api-key').value = savedApiKey;
+            }
+            if (savedModel) {
+                document.getElementById('grok-model').value = savedModel;
+            }
+        });
+    </script>

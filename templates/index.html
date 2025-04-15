@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>専門用語分析ダッシュボード</title>
+    <style>
+        /* :root, [data-theme="dark"], body, etc. CSS スタイルは変更なし */
+        :root {
+            --dark: #121438;
+            --primary: #6979F8;
+            --secondary: #BE52F2;
+            --accent1: #00C6FF;
+            --accent2: #FF5EDF;
+            --light: #F7F8FC;
+            --danger: #FF5B5B;
+
+            --text-color: var(--dark);
+            --bg-color: rgba(247, 248, 252, 0.9); /* 少し透明度を調整 */
+            --panel-bg: rgba(255, 255, 255, 0.8);
+            --input-bg: rgba(255, 255, 255, 0.9);
+            --shadow-color: rgba(18, 20, 56, 0.1);
+            --glass-blur: 10px; /* 少し強く */
+            --highlight-color: rgba(105, 121, 248, 0.2);
+            --border-color: rgba(105, 121, 248, 0.2);
+            --glow-color: rgba(105, 121, 248, 0.3);
+            --scrollbar-thumb-color: rgba(105, 121, 248, 0.5);
+            --scrollbar-track-color: rgba(105, 121, 248, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --text-color: var(--light);
+            --bg-color: rgba(18, 20, 56, 0.9);
+            --panel-bg: rgba(30, 32, 70, 0.8);
+            --input-bg: rgba(30, 32, 70, 0.9);
+            --shadow-color: rgba(0, 0, 0, 0.25);
+            --highlight-color: rgba(105, 121, 248, 0.3);
+            --border-color: rgba(105, 121, 248, 0.3);
+            --glow-color: rgba(105, 121, 248, 0.4);
+            --scrollbar-thumb-color: rgba(105, 121, 248, 0.6);
+            --scrollbar-track-color: rgba(105, 121, 248, 0.2);
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            color: var(--text-color);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            transition: background 0.5s ease, color 0.5s ease;
+            min-height: 100vh;
+            overflow: hidden; /* ページ全体のスクロールを禁止 */
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 16px;
+            gap: 16px; /* 要素間のスペース */
+        }
+
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 24px; /* 少しコンパクトに */
+            background: var(--bg-color);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            border-radius: 16px; /* 角丸 */
+            box-shadow: 0 4px 20px var(--shadow-color);
+            border: 1px solid var(--border-color);
+            flex-shrink: 0; /* ヘッダーが縮まないように */
+        }
+
+        .app-header h1 {
+            background: linear-gradient(90deg, var(--primary), var(--accent2));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin: 0;
+            font-weight: 700;
+            font-size: 1.75rem; /* 少し小さく */
+            letter-spacing: -0.5px;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .icon-btn {
+            font-size: 1.5rem; /* アイコンサイズ */
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            color: var(--text-color);
+            opacity: 0.8;
+            line-height: 1; /* アイコンの縦位置調整 */
+        }
+
+        .icon-btn:hover {
+            background: var(--highlight-color);
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        .upload-section {
+            padding: 16px 24px; /* 少しコンパクトに */
+            background: var(--bg-color);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            border-radius: 16px;
+            box-shadow: 0 4px 20px var(--shadow-color);
+            border: 1px solid var(--border-color);
+            display: flex; /* Use flex for centering */
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            flex-shrink: 0; /* 縮まないように */
+            min-height: 90px; /* 少し高さを確保 */
+            transition: all 0.3s ease;
+            position: relative; /* For drag/drop overlay potentially */
+        }
+        /* ドラッグ中のスタイル */
+        .upload-section.dragover {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--glow-color);
+        }
+
+
+        #upload-prompt { /* Initially visible */
+             display: flex; /* Use flex for horizontal layout on wider screens */
+             align-items: center;
+             justify-content: center; /* Center items */
+             gap: 16px;
+             width: 100%; /* Take full width */
+             text-align: center;
+        }
+
+        #upload-prompt p {
+            margin: 0 10px 0 0; /* Adjust margin */
+            color: var(--text-color);
+            opacity: 0.9;
+            flex-shrink: 0; /* Prevent text from shrinking too much */
+        }
+
+        #file-info {
+             display: none; /* Initially hidden */
+             align-items: center;
+             gap: 16px;
+             width: 100%;
+             justify-content: space-between;
+        }
+
+        #file-name-display {
+            font-weight: 500;
+            color: var(--text-color);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex-grow: 1; /* ファイル名表示エリアを広げる */
+            text-align: left; /* Align left by default */
+            padding-left: 10px; /* Add some padding */
+        }
+
+        .action-btn {
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 10px 20px; /* 少し小さく */
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(105, 121, 248, 0.3);
+            white-space: nowrap; /* ボタン内テキストの折り返し防止 */
+            flex-shrink: 0; /* Prevent button from shrinking */
+        }
+
+        .action-btn:hover {
+            box-shadow: 0 6px 16px rgba(105, 121, 248, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .reselect-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--primary);
+            padding: 9px 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            flex-shrink: 0; /* Prevent button from shrinking */
+        }
+
+        .reselect-btn:hover {
+            background: var(--highlight-color);
+            border-color: var(--primary);
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .content-container {
+            display: flex;
+            gap: 16px;
+            flex-grow: 1; /* 残りの高さいっぱいを使う */
+            overflow: hidden; /* コンテナ自体はスクロールしない */
+            min-height: 0; /* flexアイテムが縮むのを許可 */
+        }
+
+        .panel-wrapper {
+            flex: 1; /* 基本は均等割り */
+            display: flex;
+            flex-direction: column;
+            background: var(--panel-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            border-radius: 16px;
+            box-shadow: 0 4px 24px var(--shadow-color);
+            border: 1px solid var(--border-color);
+            overflow: hidden; /* ラッパーでクリッピング */
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .panel-wrapper:hover {
+            box-shadow: 0 8px 32px var(--shadow-color),
+                        0 0 16px var(--glow-color); /* グロー効果を少し弱く */
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0; /* ヘッダーは縮まない */
+        }
+
+        .panel-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-color);
+            opacity: 0.9;
+        }
+
+        .panel-content {
+            flex-grow: 1; /* 残りのスペースを埋める */
+            overflow-y: auto; /* コンテンツがはみ出たらスクロール */
+            padding: 20px;
+            min-height: 0; /* スクロールを有効にするため */
+        }
+
+        #file-display {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 0.95rem; /* 少し小さくして情報量を増やす */
+            line-height: 1.7; /* 行間を少し広げる */
+            color: var(--text-color);
+        }
+        /* markdown-it が生成するマージンをCSSで制御 */
+        #file-display > *:first-child { margin-top: 0; }
+        #file-display > *:last-child { margin-bottom: 0; }
+        #file-display pre {
+            background-color: rgba(0,0,0,0.05); /* コードブロック背景 */
+            padding: 1em;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid var(--border-color); /* 境界線を追加 */
+        }
+         [data-theme="dark"] #file-display pre {
+             background-color: rgba(255,255,255,0.1);
+         }
+        #file-display code:not(pre code) { /* インラインコード */
+            background-color: rgba(0,0,0,0.05);
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+         [data-theme="dark"] #file-display code:not(pre code) {
+             background-color: rgba(255,255,255,0.15);
+         }
+
+        #file-display code {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+        }
+        #file-display blockquote {
+            border-left: 3px solid var(--primary);
+            padding-left: 1em;
+            margin-left: 0;
+            color: var(--text-color);
+            opacity: 0.8;
+            font-style: italic;
+        }
+        #file-display ul, #file-display ol {
+            padding-left: 2em;
+        }
+        #file-display table {
+            border-collapse: collapse;
+            margin: 1em 0;
+            width: 100%;
+            border: 1px solid var(--border-color);
+        }
+        #file-display th, #file-display td {
+            border: 1px solid var(--border-color);
+            padding: 0.5em 0.75em;
+        }
+        #file-display th {
+             background-color: rgba(0,0,0,0.03);
+             font-weight: 600;
+        }
+         [data-theme="dark"] #file-display th {
+              background-color: rgba(255,255,255,0.1);
+         }
+
+
+        .results-container-wrapper {
+            flex: 0.8; /* 結果パネルを少し狭く */
+            min-width: 320px; /* 最小幅 */
+            position: relative; /* トグルボタンの位置基準 */
+            transition: flex 0.4s ease, min-width 0.4s ease, opacity 0.4s ease; /* アニメーション追加 */
+        }
+
+        .slide-toggle {
+            font-size: 1.2rem;
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            opacity: 0.7;
+            border-radius: 8px;
+            cursor: pointer;
+            padding: 4px 8px;
+            line-height: 1;
+            transition: all 0.2s ease;
+        }
+
+        .slide-toggle:hover {
+            background: var(--highlight-color);
+            opacity: 1;
+        }
+
+        /* 結果パネルが閉じているときのスタイル */
+        .results-container-wrapper.collapsed {
+            flex: 0 0 60px; /* 閉じたときの幅（ヘッダーとボタンのみ表示） */
+            min-width: 60px;
+        }
+        .results-container-wrapper.collapsed .panel-content {
+            display: none; /* コンテンツを非表示 */
+        }
+        .results-container-wrapper.collapsed .panel-header h3 {
+            display: none; /* タイトルも非表示 */
+        }
+        .results-container-wrapper.collapsed .panel-header {
+            justify-content: center; /* ボタンを中央に */
+            border-bottom: none; /* 線を消す */
+        }
+         .results-container-wrapper.collapsed .slide-toggle {
+            /* transform: rotate(180deg); アイコン自体で開閉を示す */
+         }
+
+
+        #results-content p.no-results {
+            text-align: center;
+            margin-top: 30px;
+            color: var(--text-color);
+            opacity: 0.7;
+            font-style: italic;
+        }
+        #results-content p.error-message { /* エラー表示用のスタイル */
+            color: var(--danger);
+            font-weight: 500;
+            white-space: pre-wrap; /* エラーメッセージ内の改行を保持 */
+            background-color: rgba(255, 91, 91, 0.1); /* 背景色を薄くつける */
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--danger);
+        }
+
+
+        .highlight {
+            background-color: var(--highlight-color);
+            padding: 1px 3px; /* 少しコンパクトに */
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-weight: 500; /* 少し強調 */
+            box-shadow: 0 0 0 1px var(--highlight-color); /* 境界線を少し */
+            /* text-decoration: underline; 下線をつける場合 */
+            /* text-decoration-style: dotted; */
+        }
+
+        .highlight:hover {
+            background: linear-gradient(90deg, var(--highlight-color), rgba(190, 82, 242, 0.25)); /* ホバー効果少し強く */
+            box-shadow: 0 0 0 1.5px var(--primary);
+        }
+
+        .term-card {
+            background: var(--input-bg); /* 背景を少し変える */
+            border: 1px solid var(--border-color);
+            border-radius: 12px; /* 少し小さく */
+            padding: 16px; /* 少し小さく */
+            margin-bottom: 16px;
+            backdrop-filter: blur(5px); /* カード内のブラーは弱めでも良いかも */
+            -webkit-backdrop-filter: blur(5px);
+            box-shadow: 0 2px 10px var(--shadow-color); /* 影を少し弱く */
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .term-card.highlighted {
+            border: 1.5px solid var(--primary);
+            box-shadow: 0 0 12px var(--glow-color), 0 4px 15px var(--shadow-color); /* ハイライト時の影 */
+            background: linear-gradient(135deg, rgba(105, 121, 248, 0.1), rgba(190, 82, 242, 0.1));
+            transform: translateY(-2px); /* 少し浮かせる */
+        }
+
+        .term-card:hover:not(.highlighted) { /* ハイライトされてない時だけホバー効果 */
+            box-shadow: 0 6px 20px var(--shadow-color),
+                        0 0 12px var(--glow-color);
+            transform: translateY(-4px);
+        }
+
+        .term-title {
+            font-weight: 700;
+            font-size: 1.15rem; /* 少し小さく */
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--primary), var(--accent2));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            word-break: break-word; /* 長い用語で折り返す */
+        }
+
+        .term-content {
+            margin-bottom: 10px;
+            color: var(--text-color);
+            line-height: 1.6;
+            font-size: 0.9rem; /* 説明文も少し小さく */
+        }
+        /* markdown-it が生成するマージンをCSSで制御 */
+        .term-content > *:first-child { margin-top: 0; }
+        .term-content > *:last-child { margin-bottom: 0; }
+        .term-content pre { /* 説明文内のコードブロック */
+             background-color: rgba(0,0,0,0.05);
+             padding: 0.8em;
+             border-radius: 6px;
+             overflow-x: auto;
+             font-size: 0.9em;
+             border: 1px solid var(--border-color);
+        }
+         /* ダークモード時のコードブロック背景 */
+         [data-theme="dark"] .term-content pre {
+             background-color: rgba(255,255,255,0.1);
+         }
+         .term-content code:not(pre code) { /* 説明文内のインラインコード */
+             background-color: rgba(0,0,0,0.05);
+             padding: 0.2em 0.4em;
+             border-radius: 4px;
+             font-size: 0.9em;
+         }
+          [data-theme="dark"] .term-content code:not(pre code) {
+              background-color: rgba(255,255,255,0.15);
+          }
+         .term-content code {
+             font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+             word-break: break-word; /* コード内も折り返し */
+         }
+         .term-content blockquote {
+             border-left: 3px solid var(--secondary); /* 色を変えてみる */
+             padding-left: 1em;
+             margin-left: 0;
+             color: var(--text-color);
+             opacity: 0.85;
+             font-style: italic;
+         }
+
+
+        .term-source {
+            font-style: italic;
+            color: var(--text-color);
+            opacity: 0.7; /* 少し薄く */
+            font-size: 0.85rem;
+            margin-top: 12px; /* 説明文との間に少しスペース */
+            display: block; /* サムネイル回り込み解除のため */
+            text-align: right; /* 右寄せにする場合 */
+        }
+        .term-source a {
+            color: inherit; /* 親要素の色を継承 */
+            text-decoration: none;
+            border-bottom: 1px dotted currentColor;
+        }
+        .term-source a:hover {
+            color: var(--primary);
+            border-bottom-style: solid;
+        }
+
+        .term-thumbnail { /* 未使用だがスタイルは残しておく */
+            max-width: 80px;
+            margin-top: 0px;
+            border-radius: 4px;
+            float: right;
+            margin-left: 10px;
+            margin-bottom: 5px;
+        }
+
+        .loading {
+            position: fixed; /* 全画面中央 */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6); /* 背景を少し濃く */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000; /* 最前面 */
+            opacity: 0; /* 初期状態は非表示 */
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .loading.active {
+             opacity: 1;
+             visibility: visible;
+        }
+
+        .loading p {
+            color: var(--light); /* 白文字 */
+            font-size: 1.1rem;
+            margin-top: 16px;
+            max-width: 80%;
+            text-align: center;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid var(--light);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #error-container {
+            position: fixed;
+            bottom: -100%; /* Initially hidden below screen */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--danger);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(255, 91, 91, 0.4);
+            z-index: 1500;
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.4s ease-out; /* bottom プロパティをアニメーション */
+            max-width: 80%;
+            text-align: center;
+            cursor: pointer; /* クリックで閉じれるように */
+            white-space: pre-wrap; /* メッセージ内の改行を保持 */
+        }
+        #error-container.show {
+            opacity: 1;
+            bottom: 30px; /* 表示位置 */
+        }
+
+
+        /* 設定ポップアップ スタイル */
+        #settings-popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--input-bg);
+            padding: 28px; /* 少し広めに */
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            z-index: 1000;
+            width: 480px;
+            max-width: 90%;
+            box-shadow: 0 8px 32px var(--shadow-color);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        #settings-popup.show {
+            display: block;
+        }
+
+        #settings-popup h2 {
+            margin-top: 0;
+            color: var(--text-color);
+            font-size: 1.5rem;
+            margin-bottom: 24px;
+            background: linear-gradient(90deg, var(--primary), var(--accent2));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-align: center;
+        }
+
+        #settings-popup label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-color);
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        #settings-popup input, #settings-popup select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
+            color: var(--text-color);
+            border-radius: 8px;
+            margin-bottom: 10px; /* Reduce margin bottom */
+            font-size: 1rem;
+        }
+        #settings-popup input:focus, #settings-popup select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--glow-color);
+        }
+        #settings-popup small { /* APIキー下の注釈 */
+             display: block;
+             margin-top: -5px; /* Adjust position */
+             margin-bottom: 15px;
+             font-size: 0.8rem;
+             color: var(--text-color);
+             opacity: 0.7;
+        }
+
+        .settings-actions {
+             display: flex;
+             justify-content: flex-end;
+             gap: 12px;
+             margin-top: 24px;
+        }
+
+        #settings-popup button {
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+        }
+
+        #settings-popup button.cancel-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+         #settings-popup button.cancel-btn:hover {
+            background: var(--highlight-color);
+         }
+
+        #settings-popup button.save-btn {
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            box-shadow: 0 4px 12px rgba(105, 121, 248, 0.3);
+        }
+        #settings-popup button.save-btn:hover {
+            opacity: 0.9;
+            box-shadow: 0 6px 16px rgba(105, 121, 248, 0.4);
+            transform: translateY(-1px);
+        }
+
+        /* スクロールバーのスタイル */
+        .panel-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .panel-content::-webkit-scrollbar-track {
+            background: var(--scrollbar-track-color);
+            border-radius: 4px;
+        }
+        .panel-content::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb-color);
+            border-radius: 4px;
+        }
+        .panel-content::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 900px) {
+             .app-header h1 { font-size: 1.5rem; }
+             .content-container { flex-direction: column; }
+             .results-container-wrapper { flex: 1; min-width: unset; } /* 縦積みの場合は高さを取る */
+             .results-container-wrapper.collapsed {
+                 flex: 0 0 60px; /* 閉じたときの高さ */
+                 min-height: 60px;
+             }
+             .panel-wrapper { flex-basis: 50%; min-height: 200px; } /* 高さを分け合う + 最小高さ */
+        }
+        @media (max-width: 600px) {
+             .app-container { padding: 12px; gap: 12px; }
+             .app-header { padding: 6px 16px; }
+             .app-header h1 { font-size: 1.3rem; }
+             .header-actions { gap: 8px; }
+             .icon-btn { font-size: 1.3rem; padding: 6px; }
+             .upload-section { padding: 12px 16px; min-height: auto; } /* 高さを自動に */
+             #upload-prompt {
+                 flex-direction: column; /* Stack items vertically */
+                 text-align: center;
+                 gap: 10px;
+             }
+             #upload-prompt p { margin: 0 0 10px 0; } /* Add bottom margin to text */
+             #upload-prompt .action-btn { width: 80%; } /* Make button slightly less wide */
+
+             #file-info {
+                 flex-direction: column;
+                 gap: 10px;
+                 align-items: stretch; /* Make buttons full width */
+             }
+             #file-name-display { text-align: center; padding-left: 0; } /* Center file name */
+             .action-btn, .reselect-btn { width: 100%; text-align: center;}
+             .panel-header { padding: 10px 16px; }
+             .panel-header h3 { font-size: 1rem; }
+             .panel-content { padding: 16px; }
+             .term-card { padding: 12px; }
+             .term-title { font-size: 1.05rem; }
+             .term-content { font-size: 0.85rem; }
+             .term-source { font-size: 0.8rem; }
+             #settings-popup { padding: 20px; width: 95%; }
+             #error-container { width: 90%; bottom: 15px; padding: 10px 15px; font-size: 0.9rem; }
+        }
+    </style>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Markdown-it library -->
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>専門用語抽出ツール</h1>
+            <div class="header-actions">
+                <button onclick="showSettingsPopup()" class="icon-btn" title="設定">⚙️</button>
+                <button onclick="toggleTheme()" class="icon-btn" id="theme-toggle" title="テーマ切替">
+                    <!-- 初期アイコンはJSで設定 -->
+                </button>
+            </div>
+        </header>
+
+        <div class="upload-section">
+            <!-- Initial prompt -->
+            <div id="upload-prompt">
+                 <p>Markdownファイル(.md)をドロップ または</p>
+                 <input type="file" id="file-input" accept=".md,.markdown"> <!-- .markdown も許可 -->
+                 <button class="action-btn" id="upload-btn">ファイルを選択</button>
+            </div>
+            <!-- Info shown after file selection -->
+            <div id="file-info">
+                <span id="file-name-display"></span>
+                <button class="reselect-btn" id="reselect-btn">ファイルを再選択</button>
+            </div>
+        </div>
+
+        <main class="content-container">
+            <div class="panel-wrapper file-content-wrapper">
+                <div class="panel-header">
+                    <h3>ドキュメントプレビュー</h3>
+                </div>
+                <div class="panel-content">
+                     <div id="file-display">ここにファイルの内容が表示されます...</div>
+                </div>
+            </div>
+            <div class="panel-wrapper results-container-wrapper" id="results-panel">
+                 <div class="panel-header">
+                     <h3>抽出された専門用語</h3>
+                     <button class="slide-toggle" onclick="toggleResultsPanel()" title="パネルを開閉" id="result-toggle-btn">⬅️</button> <!-- アイコン変更 -->
+                 </div>
+                <div class="panel-content results-container" id="results">
+                    <div id="results-content"><p class="no-results">ファイルをアップロードして分析を開始してください。</p></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ローディング表示 -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p id="loading-message">処理中...</p>
+        </div>
+
+        <!-- エラー表示 -->
+        <div id="error-container">
+            <span id="error-message"></span>
+            <span style="display: block; font-size: 0.8em; opacity: 0.7; margin-top: 5px;">(クリックして閉じる)</span>
+        </div>
+    </div>
+
+    <!-- 設定ポップアップ -->
+    <div id="settings-popup">
+        <form id="settings-form">
+             <h2>API設定</h2>
+             <div style="margin-bottom: 0;"> <!-- margin を調整 -->
+                 <label for="grok-api-key">Grok APIキー</label>
+                 <input type="password" id="grok-api-key" name="api_key" placeholder="APIキーを入力" required>
+                 <small>APIキーはブラウザのローカルストレージにのみ保存されます。</small>
+             </div>
+             <div style="margin-bottom: 20px;">
+                 <label for="grok-model">Grokモデル</label>
+                 <select id="grok-model" name="model">
+                     <!-- 利用可能なモデルに合わせて更新 -->
+                     <option value="grok-2-latest">grok-2-latest</option>
+                     <!-- Grok-1/1.5/2 は提供終了またはAPIが異なる可能性があるので注意 -->
+                     <!-- <option value="grok-1">Grok-1 (旧)</option> -->
+                 </select>
+             </div>
+             <div class="settings-actions">
+                 <button type="button" class="cancel-btn" onclick="closeSettingsPopup()">キャンセル</button>
+                 <button type="submit" class="save-btn">保存</button>
+             </div>
+        </form>
+    </div>
+
+    <script>
+        // --- グローバル変数・初期設定 ---
+        const md = window.markdownit({
+            html: false,        // HTMLタグ無効化 (セキュリティ)
+            xhtmlOut: false,    // <br /> のような XHTML タグを出力しない
+            breaks: true,       // 改行を <br> に変換
+            linkify: true,      // URLを自動リンク化
+            typographer: true,  // 引用符などを綺麗に
+        }).use(window.markdownit); // プラグイン例 (もし使う場合)
+
+        // DOM要素の取得
+        const fileInput = document.getElementById('file-input');
+        const uploadBtn = document.getElementById('upload-btn');
+        const reselectBtn = document.getElementById('reselect-btn');
+        const fileDisplay = document.getElementById('file-display');
+        const resultsContent = document.getElementById('results-content');
+        const loadingIndicator = document.getElementById('loading');
+        const loadingMessage = document.getElementById('loading-message');
+        const errorContainer = document.getElementById('error-container');
+        const errorMessage = document.getElementById('error-message');
+        const settingsPopup = document.getElementById('settings-popup');
+        const settingsForm = document.getElementById('settings-form');
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const uploadPrompt = document.getElementById('upload-prompt');
+        const fileInfo = document.getElementById('file-info');
+        const fileNameDisplay = document.getElementById('file-name-display');
+        const resultsPanel = document.getElementById('results-panel');
+        const resultToggleBtn = document.getElementById('result-toggle-btn');
+        const grokApiKeyInput = document.getElementById('grok-api-key');
+        const grokModelSelect = document.getElementById('grok-model');
+        const uploadSection = document.querySelector('.upload-section'); // ドラッグ＆ドロップ用
+
+        let currentFileContent = ''; // Markdownの原文を保持
+        let currentAnalysisResults = null; // 分析結果を保持
+        let currentFileName = ''; // ファイル名を保持
+
+        // --- イベントリスナー ---
+        uploadBtn.onclick = () => fileInput.click();
+        reselectBtn.onclick = () => fileInput.click();
+
+        fileInput.onchange = (e) => {
+            handleFileSelect(e.target.files);
+        };
+
+        settingsForm.onsubmit = (e) => {
+            e.preventDefault();
+            saveSettings(); // 設定を localStorage に保存
+            closeSettingsPopup();
+            // 設定変更を通知し、再分析を促す
+            if (currentFileContent) {
+                 showError("設定が保存されました。変更を反映するには、ファイルを再度選択してください。", "info", 5000);
+                 // 設定変更を即時反映させたい場合は、ここで analyzeText を再度呼び出すことも検討できる
+                 // analyzeText(currentFileContent);
+            } else {
+                 showError("設定を保存しました。", "info", 3000);
+            }
+        };
+
+        // ドラッグ＆ドロップイベント
+        uploadSection.ondragover = (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        };
+        uploadSection.ondragleave = (e) => {
+             e.preventDefault();
+             uploadSection.classList.remove('dragover');
+        };
+        uploadSection.ondrop = (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            handleFileSelect(e.dataTransfer.files);
+        };
+        // ドキュメント全体へのドロップを無効化 (意図しないファイル読み込みを防ぐ)
+        document.ondragover = (e) => e.preventDefault();
+        document.ondrop = (e) => e.preventDefault();
+
+        // --- 主要関数 ---
+
+        /** ファイル選択・検証処理 */
+        function handleFileSelect(files) {
+            if (!files || files.length === 0) return;
+            const file = files[0];
+
+            // ファイルタイプの検証 (拡張子)
+            const allowedExtensions = ['.md', '.markdown'];
+            const fileExtension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+            if (!allowedExtensions.includes(fileExtension)) {
+                showError(`Markdownファイル (${allowedExtensions.join(', ')}) のみアップロード可能です。`);
+                fileInput.value = ''; // 入力をリセット
+                return;
+            }
+
+            // ファイルサイズの検証 (例: 10MB以下)
+            const maxSizeMB = 10;
+            if (file.size > maxSizeMB * 1024 * 1024) {
+                showError(`ファイルサイズが大きすぎます (${maxSizeMB}MB以下にしてください)。`);
+                fileInput.value = '';
+                return;
+            }
+
+            hideError(); // 前のエラーを隠す
+            handleFile(file);
+        }
+
+        /** ファイル読み込みと分析開始 */
+        function handleFile(file) {
+            currentFileName = file.name; // ファイル名を更新
+            fileNameDisplay.textContent = currentFileName;
+            uploadPrompt.style.display = 'none'; // プロンプトを隠す
+            fileInfo.style.display = 'flex'; // ファイル情報を表示
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentFileContent = e.target.result; // 元のテキストを保持
+                displayMarkdownPreview(currentFileContent); // プレビュー表示
+                resultsContent.innerHTML = ''; // 結果をクリア
+                // 分析開始
+                analyzeText(currentFileContent);
+            };
+            reader.onerror = () => {
+                showError('ファイルの読み込み中にエラーが発生しました。');
+                resetUploadUI();
+            };
+            reader.readAsText(file); // テキストとして読み込み
+        }
+
+        /** Markdown プレビュー表示 */
+        function displayMarkdownPreview(markdownText) {
+            try {
+                // markdown-it を使って HTML に変換して表示
+                fileDisplay.innerHTML = md.render(markdownText);
+            } catch (renderError) {
+                 console.error("Markdown rendering error:", renderError);
+                 fileDisplay.innerHTML = `<p class="error-message">Markdownのプレビュー表示に失敗しました。</p><pre>${escapeHtml(markdownText)}</pre>`;
+                 showError("Markdownの表示中にエラーが発生しました。");
+            }
+        }
+
+        /** テキスト分析処理 (サーバーへリクエスト) */
+        async function analyzeText(markdownText) {
+            if (!markdownText) return;
+
+            setLoading(true, "分析を開始しています...");
+            try {
+                // localStorage から APIキーとモデルを取得
+                const apiKey = localStorage.getItem('grok_api_key') || '';
+                const model = localStorage.getItem('grok_model') || 'grok-2-latest'; // デフォルトモデル
+
+                if (!apiKey) {
+                    showError('APIキーが設定されていません。右上の設定 ⚙️ から入力してください。', 'error', 0); // 永続表示
+                    setLoading(false);
+                    resultsContent.innerHTML = '<p class="no-results error-message">APIキーが必要です。</p>';
+                    return; // APIキーがない場合は処理中断
+                }
+
+                setLoading(true, "専門用語を抽出中..."); // ステータス更新
+                console.log(`Sending request to /analyze (model: ${model})`);
+
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json', // Accept ヘッダーを追加
+                        'X-Grok-API-Key': apiKey,     // ヘッダーでAPIキーを送信
+                    },
+                    body: JSON.stringify({
+                        text: markdownText, // Markdownテキスト
+                        model: model        // 選択されたモデル
+                    }),
+                });
+
+                setLoading(true, "結果を処理中..."); // ステータス更新
+
+                // レスポンスステータスチェック
+                if (!response.ok) {
+                    let errorData = { error: `HTTPエラー ${response.status} (${response.statusText})` }; // デフォルトエラーメッセージ
+                    try {
+                        // エラーレスポンスがJSON形式であれば詳細を取得
+                        const potentialJson = await response.json();
+                        if (potentialJson && potentialJson.error) {
+                            // サーバーからのエラーメッセージを使用
+                            errorData.error = potentialJson.error;
+                            // 詳細情報があれば追加
+                            if(potentialJson.details) {
+                                errorData.error += `\n詳細: ${potentialJson.details}`;
+                            }
+                        }
+                    } catch (e) {
+                        // JSONパース失敗時はステータスコードのみ
+                        console.warn("Failed to parse error response as JSON.");
+                    }
+                    // ステータスコードに応じたエラーメッセージを生成
+                    let userFriendlyError = `分析サーバーでエラーが発生しました (コード: ${response.status})。\n${errorData.error}`;
+                    if (response.status === 401) {
+                        userFriendlyError = `APIキーが無効か、認証に失敗しました。設定 ⚙️ を確認してください。\n(サーバーエラー: ${errorData.error})`;
+                    } else if (response.status === 429) {
+                         userFriendlyError = `APIの利用制限を超えました。しばらくしてから再試行してください。\n(サーバーエラー: ${errorData.error})`;
+                    } else if (response.status === 502 || response.status === 503 || response.status === 504) {
+                         userFriendlyError = `Grok APIまたは分析サーバーとの通信に問題が発生しました。時間をおいて再試行してください。\n(サーバーエラー: ${errorData.error})`;
+                    }
+                    throw new Error(userFriendlyError);
+                }
+
+                // 正常なレスポンス (JSON) をパース
+                const data = await response.json();
+
+                // サーバー側で処理中にエラーがセットされている場合
+                if (data.error) {
+                    throw new Error(`分析処理エラー: ${data.error}`);
+                }
+
+                currentAnalysisResults = data.results || []; // 結果を保存
+                displayResults(currentAnalysisResults);    // 結果を表示
+                highlightTerms(currentAnalysisResults);    // 用語をハイライト
+
+            } catch (error) {
+                console.error('分析エラー:', error);
+                showError(`分析中にエラーが発生しました:\n${error.message}`, 'error', 8000); // 8秒表示
+                resultsContent.innerHTML = `<p class="no-results error-message">分析に失敗しました。\n詳細: ${escapeHtml(error.message)}</p>`;
+                currentAnalysisResults = null; // エラー時は結果をクリア
+            } finally {
+                setLoading(false); // ローディング解除
+            }
+        }
+
+        /** 分析結果を表示 */
+        function displayResults(results) {
+            resultsContent.innerHTML = ''; // 表示前にクリア
+
+            if (!results || results.length === 0) {
+                resultsContent.innerHTML = '<p class="no-results">専門用語が見つかりませんでした。</p>';
+                return;
+            }
+
+            // 結果をカード形式で表示
+            results.forEach(result => {
+                const card = document.createElement('div');
+                card.className = 'term-card';
+                // data-term 属性には元の用語を保持（検索用）
+                card.dataset.term = result.term;
+
+                let contentHtml = '<p style="opacity: 0.7;">説明を取得できませんでした。</p>'; // デフォルトメッセージ
+                let sourceText = '出典: 不明';
+                let cardHasError = false; // カード内でエラーが発生したか
+
+                // explanation オブジェクトが存在するかチェック
+                if (result.explanation) {
+                    if (result.explanation.error) {
+                         // 説明取得時にエラーがあった場合
+                         contentHtml = `<p class="error-message">説明取得エラー: ${escapeHtml(result.explanation.error)}</p>`;
+                         sourceText = `ソース: ${result.explanation.source || 'エラー発生元'}`;
+                         cardHasError = true;
+                    } else if (result.explanation.content) {
+                         // 正常に説明が取得できた場合
+                         try {
+                             // Grokの出力はMarkdownの可能性があるため、md.renderを使用
+                             contentHtml = md.render(result.explanation.content);
+                         } catch (renderError) {
+                             console.error(`Markdown rendering error for term "${result.term}":`, renderError);
+                             contentHtml = `<p class="error-message">説明の表示エラー</p><pre>${escapeHtml(result.explanation.content)}</pre>`;
+                             cardHasError = true;
+                         }
+                         sourceText = formatSource(result.explanation); // 出典情報をフォーマット
+                    } else if (result.explanation.source === 'none'){
+                         // 用語が無効だった場合など
+                         contentHtml = `<p style="opacity: 0.7;">${escapeHtml(result.explanation.content || '有効な用語ではありません。')}</p>`;
+                         sourceText = 'ソース: なし';
+                    }
+                }
+
+                // カードのHTMLを構築
+                card.innerHTML = `
+                    <div class="term-title">${escapeHtml(result.term)}</div>
+                    <div class="term-content">
+                        ${contentHtml}
+                    </div>
+                    <div class="term-source">${sourceText}</div>
+                `;
+
+                // エラーがあったカードにスタイルを適用 (任意)
+                if (cardHasError) {
+                    // card.style.borderColor = 'var(--danger)';
+                    card.style.opacity = '0.8';
+                }
+
+                resultsContent.appendChild(card);
+            });
+        }
+
+        /** ドキュメント内の用語をハイライト */
+        function highlightTerms(results) {
+            if (!fileDisplay.innerHTML || !results || results.length === 0) return;
+
+            // 元のMarkdownから再レンダリングして初期状態に戻す
+            let currentHtml;
+            try {
+                 currentHtml = md.render(currentFileContent);
+             } catch (renderError) {
+                 console.error("Markdown rendering error during highlight preparation:", renderError);
+                 return; // レンダリング失敗時はハイライト処理を中断
+             }
+
+            // 用語リストを準備（ハイライト対象）
+            const termsToHighlight = results.map(r => r.term).filter(Boolean);
+            if (termsToHighlight.length === 0) return;
+
+            // 長い用語から処理することで、部分的な重複に対応
+            termsToHighlight.sort((a, b) => b.length - a.length);
+
+            // ハイライト処理
+            termsToHighlight.forEach(term => {
+                // data-term 属性用にエスケープ
+                 const escapedDataTerm = escapeHtml(term);
+                // 正規表現用にエスケープ
+                const escapedRegexTerm = term.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+                try {
+                    // 正規表現: 単語境界を考慮しつつ、既存のタグ内を避ける（簡易版）
+                    // (?<!...) はネガティブルックビハインド、(?!...) はネガティブルックアヘッド
+                    // (?<![>/]) は終了タグや属性値の直後でないことを確認
+                    // (?![^<]*?>) は開始タグの中ではないことを確認
+                    // この正規表現は完全ではないが、多くの場合で機能するはず
+                    const regex = new RegExp(`(?<![\\w-])(${escapedRegexTerm})(?![\\w-])(?![^<]*?>)`, 'gi');
+
+                    currentHtml = currentHtml.replace(regex, (match, p1) => {
+                        // 既にハイライトされていないかチェック (簡易)
+                        // このチェックは不完全。ネストされたハイライトを防ぐ目的。
+                        // if (match.toLowerCase().includes('<span class="highlight"')) {
+                        //    return match; // 既にハイライトの一部なら変更しない
+                        // }
+                        return `<span class="highlight" data-term="${escapedDataTerm}">${p1}</span>`;
+                    });
+                } catch (e) {
+                    console.error(`正規表現エラー: 用語 "${term}"`, e);
+                }
+            });
+
+            fileDisplay.innerHTML = currentHtml;
+
+            // ハイライト要素にクリックイベントを追加 (イベント委譲)
+            fileDisplay.onclick = function(event) {
+                 const target = event.target;
+                 // クリックされた要素がハイライト要素自身か、その子要素かを確認
+                 const highlightSpan = target.closest('.highlight');
+                 if (highlightSpan) {
+                     const term = highlightSpan.dataset.term; // datasetから用語を取得
+                     if (term) {
+                         scrollToTermCard(term); // 対応するカードへスクロール
+                     }
+                 }
+            };
+        }
+
+        /** 指定された用語のカードまでスクロール */
+        function scrollToTermCard(term) {
+            // 既存のハイライトを解除
+            document.querySelectorAll('.term-card.highlighted').forEach(c =>
+                c.classList.remove('highlighted'));
+
+            // data-term 属性でカードを検索
+            // CSSセレクタ用に term 内のダブルクォートをエスケープ
+            const escapedTerm = term.replace(/"/g, '\\"');
+            const selector = `.term-card[data-term="${escapedTerm}"]`;
+            console.debug("Searching for card with selector:", selector);
+            const card = resultsContent.querySelector(selector);
+
+            if (card) {
+                console.debug("Card found:", card);
+                // 結果パネルが開いていなければ開く
+                if (resultsPanel.classList.contains('collapsed')) {
+                     toggleResultsPanel(); // パネルを開く
+                     // アニメーション完了後にスクロールとハイライトを行う
+                     setTimeout(() => {
+                         card.classList.add('highlighted');
+                         card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                     }, 400); // 400ms は CSS transition duration に合わせる
+                } else {
+                    // パネルが既に開いている場合
+                    card.classList.add('highlighted');
+                    card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                }
+
+                // // 一定時間後にハイライト解除（任意）
+                // setTimeout(() => {
+                //     if (card.classList.contains('highlighted')) {
+                //         card.classList.remove('highlighted');
+                //     }
+                // }, 3000);
+            } else {
+                console.warn("Card not found for term:", term);
+                // 見つからなかった場合のフィードバック
+                showError(`用語カード "${escapeHtml(term)}" が結果リストに見つかりません。`, 'info', 3000);
+            }
+        }
+
+
+        // --- UI制御関数 ---
+
+        /** ローディング表示の切り替え */
+        function setLoading(isLoading, message = "処理中...") {
+             if (isLoading) {
+                 loadingMessage.textContent = message; // メッセージを設定
+                 loadingIndicator.classList.add('active');
+             } else {
+                 loadingIndicator.classList.remove('active');
+             }
+         }
+
+        /** エラーメッセージ表示 */
+        let errorTimeout;
+        function showError(message, type = 'error', duration = 5000) {
+            errorMessage.textContent = message;
+            // スタイルリセットとタイプ別設定
+            errorContainer.style.backgroundColor = '';
+            errorContainer.style.boxShadow = '';
+            errorContainer.className = 'error-container'; // Reset classes
+
+            if (type === 'info') {
+                 errorContainer.style.backgroundColor = 'var(--primary)';
+                 errorContainer.style.boxShadow = '0 4px 15px rgba(105, 121, 248, 0.4)';
+            } else { // default to error
+                 errorContainer.style.backgroundColor = 'var(--danger)';
+                 errorContainer.style.boxShadow = '0 4px 15px rgba(255, 91, 91, 0.4)';
+            }
+            errorContainer.classList.add('show'); // 表示クラスを追加
+
+            clearTimeout(errorTimeout); // 既存のタイマーをクリア
+            if (duration > 0) { // durationが0より大きい場合のみ自動で閉じるタイマーを設定
+                errorTimeout = setTimeout(hideError, duration);
+            }
+            // クリックで閉じれるようにイベントリスナーを設定
+            errorContainer.onclick = hideError;
+        }
+
+        /** エラーメッセージ非表示 */
+        function hideError() {
+             errorContainer.classList.remove('show');
+             // クリックイベントリスナーを削除（連続クリック防止）
+             errorContainer.onclick = null;
+             // タイムアウトもクリア
+             clearTimeout(errorTimeout);
+        }
+
+        /** ファイルアップロードUIをリセット */
+        function resetUploadUI() {
+            fileInput.value = ''; // ファイル選択をリセット
+            uploadPrompt.style.display = 'flex'; // プロンプト再表示
+            fileInfo.style.display = 'none'; // ファイル情報非表示
+            fileNameDisplay.textContent = '';
+            fileDisplay.innerHTML = 'ここにファイルの内容が表示されます...'; // プレビューリセット
+            resultsContent.innerHTML = '<p class="no-results">ファイルをアップロードして分析を開始してください。</p>'; // 結果リセット
+            currentFileContent = '';
+            currentAnalysisResults = null;
+            currentFileName = '';
+            // ドラッグ状態のスタイルリセット
+            uploadSection.classList.remove('dragover');
+            console.log("Upload UI Reset");
+        }
+
+        /** 結果パネルの表示/非表示切り替え */
+        function toggleResultsPanel() {
+            resultsPanel.classList.toggle('collapsed');
+            // ボタンのアイコンやタイトルを更新
+            if (resultsPanel.classList.contains('collapsed')) {
+                resultToggleBtn.title = 'パネルを開く';
+                resultToggleBtn.textContent = '➡️'; // 開くアイコン
+                resultToggleBtn.style.transform = 'rotate(0deg)';
+            } else {
+                resultToggleBtn.title = 'パネルを閉じる';
+                resultToggleBtn.textContent = '⬅️'; // 閉じるアイコン
+                resultToggleBtn.style.transform = 'rotate(0deg)'; // 回転は不要に
+
+                 // 開くときにコンテンツが空ならメッセージを表示
+                 if (!resultsContent.hasChildNodes() || resultsContent.textContent.trim() === '') {
+                    if (!currentFileContent) { // ファイル未選択の場合
+                         resultsContent.innerHTML = '<p class="no-results">ファイルをアップロードして分析を開始してください。</p>';
+                    } else if (loadingIndicator.classList.contains('active')) { // 分析中の場合
+                         resultsContent.innerHTML = '<p class="no-results">分析中です...</p>';
+                    } else { // 分析後で結果がない場合
+                         resultsContent.innerHTML = '<p class="no-results">専門用語が見つかりませんでした。</p>';
+                    }
+                 }
+            }
+        }
+
+        // --- 設定関連 ---
+
+        /** 設定ポップアップ表示 */
+        function showSettingsPopup() {
+             // localStorage から現在の設定値を読み込んでフォームにセット
+             grokApiKeyInput.value = localStorage.getItem('grok_api_key') || '';
+             grokModelSelect.value = localStorage.getItem('grok_model') || 'grok-2-latest'; // デフォルトモデル
+             settingsPopup.classList.add('show');
+        }
+
+        /** 設定ポップアップ非表示 */
+        function closeSettingsPopup() {
+             settingsPopup.classList.remove('show');
+        }
+
+        /** 設定を localStorage に保存 */
+        function saveSettings() {
+            const apiKey = grokApiKeyInput.value.trim();
+            const model = grokModelSelect.value;
+
+            if (apiKey) {
+                 localStorage.setItem('grok_api_key', apiKey);
+                 console.log('API Key saved to localStorage.');
+            } else {
+                 localStorage.removeItem('grok_api_key'); // 空の場合は削除
+                 console.log('API Key removed from localStorage.');
+                 showError("APIキーが空のため、localStorage から削除されました。", "info", 3000);
+            }
+            localStorage.setItem('grok_model', model);
+            console.log(`Model saved to localStorage: ${model}`);
+
+            // パスワードフィールドの内容をクリア（セキュリティのため任意で）
+            // grokApiKeyInput.value = '';
+        }
+
+        // --- テーマ関連 ---
+
+        /** テーマを適用 */
+        function applyTheme(theme) {
+             document.documentElement.setAttribute('data-theme', theme);
+             themeToggleBtn.textContent = theme === 'dark' ? '☀️' : '🌙'; // アイコン変更
+             themeToggleBtn.title = theme === 'dark' ? 'ライトモードに切替' : 'ダークモードに切替';
+             localStorage.setItem('theme', theme); // 設定を保存
+        }
+
+        /** テーマ切り替え */
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            applyTheme(newTheme);
+        }
+
+        // --- ヘルパー関数 ---
+
+        /** 出典情報をフォーマット */
+        function formatSource(explanation) {
+             if (!explanation || !explanation.source) {
+                 return '出典: 不明';
+             }
+            const sourceMap = {
+                'grok': 'Grok API',
+                'error': 'エラー情報',
+                'none': 'なし'
+                // 他のソースがあれば追加
+            };
+            const sourceKey = String(explanation.source).toLowerCase();
+            const sourceName = sourceMap[sourceKey] || escapeHtml(explanation.source); // 不明なソースはそのまま表示
+
+            // URL があればリンクにする (現状はURLを返していない)
+            if (explanation.url) {
+                return `出典: <a href="${escapeHtml(explanation.url)}" target="_blank" rel="noopener noreferrer">${sourceName}</a>`;
+            } else {
+                return `出典: ${sourceName}`;
+            }
+        }
+
+        /** HTML特殊文字をエスケープ */
+        function escapeHtml(unsafe) {
+             if (typeof unsafe !== 'string') {
+                 // 文字列でない場合は安全な文字列表現に変換
+                 return unsafe === null || unsafe === undefined ? '' : String(unsafe)
+                    .replace(/&/g, "&")
+                    .replace(/</g, "<")
+                    .replace(/>/g, ">")
+                    .replace(/"/g, "\"")
+                    .replace(/'/g, "'"); // ' を ' に変更 (より一般的)
+             }
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#39;");
+         }
+
+        // --- 初期化処理 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. テーマの初期化
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+            applyTheme(initialTheme);
+
+            // 2. 設定値の初期読み込み（フォームへの反映はポップアップ表示時に行う）
+            const storedApiKey = localStorage.getItem('grok_api_key');
+            const storedModel = localStorage.getItem('grok_model');
+            console.log('初期設定 - API Key:', storedApiKey ? '設定済み' : '未設定');
+            console.log('初期設定 - Model:', storedModel || '(Default: grok-2-latest)');
+            // モデル選択肢のデフォルトを設定値に合わせる
+            if (storedModel && grokModelSelect.querySelector(`option[value="${storedModel}"]`)) {
+                grokModelSelect.value = storedModel;
+            } else if (storedModel) {
+                 console.warn(`保存されたモデル "${storedModel}" が選択肢にないため、デフォルトを使用します。`);
+                 // 選択肢にない場合はデフォルト値を使う
+                 localStorage.removeItem('grok_model'); // 無効な設定を削除
+            }
+
+
+            // 3. レスポンシブ対応のための初期実行とリスナー設定
+            handleResize(); // 初期ロード時に実行
+            window.addEventListener('resize', handleResize);
+
+            // 4. 結果パネルの初期状態（閉じている）に合わせてボタンアイコンを設定
+            if (resultsPanel.classList.contains('collapsed')) {
+                 resultToggleBtn.textContent = '➡️';
+                 resultToggleBtn.title = 'パネルを開く';
+            } else {
+                 resultToggleBtn.textContent = '⬅️';
+                 resultToggleBtn.title = 'パネルを閉じる';
+            }
+
+            console.log("専門用語分析ダッシュボードが初期化されました。");
+        });
+
+         // --- レスポンシブ用ヘルパー ---
+         function handleResize() {
+             // ファイルが選択されていない場合のみ、アップロードプロンプトのレイアウトを調整
+             if (fileInfo.style.display === 'none') {
+                 if (window.innerWidth <= 600) {
+                     uploadPrompt.style.flexDirection = 'column';
+                     uploadPrompt.querySelector('p').style.marginBottom = '10px';
+                 } else {
+                     uploadPrompt.style.flexDirection = 'row';
+                     uploadPrompt.querySelector('p').style.marginBottom = '0';
+                 }
+             }
+             // 他のレスポンシブ調整が必要な場合はここに追加
+         }
+
+    </script>
+</body>
+</html>
